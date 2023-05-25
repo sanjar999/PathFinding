@@ -11,7 +11,7 @@ public class GridGenerator : MonoBehaviour
     [SerializeField] private int _resolution;
     [SerializeField] private float _gridOffset;
     [SerializeField] private float _offset;
-
+    [SerializeField] private int _obstacleProbability = 3;
     private Tile[,] _grid;
     private List<EnterPos> _enters;
     private List<ExitPos> _exits;
@@ -34,6 +34,7 @@ public class GridGenerator : MonoBehaviour
         GenerateExitsPosz();
         SpawnEnter();
         SpawnExit();
+        ClearEE();
     }
 
     private void GenerateGrid()
@@ -44,6 +45,12 @@ public class GridGenerator : MonoBehaviour
             {
                 var instance = Instantiate(_tile, transform);
                 instance.transform.localPosition = new Vector3(i * _offset - _gridOffset, j * _offset - _gridOffset, 0);
+
+                if (Random.Range(0,_obstacleProbability) == 0)
+                {
+                    instance.Type = TileType.obstacle;
+                }
+                
                 _grid[i, j] = instance;
             }
         }
@@ -97,5 +104,17 @@ public class GridGenerator : MonoBehaviour
         instance.transform.position = randomPos.transform.position;
         instance.index = randomPos.index;
         m_exit = instance;
+    }
+
+    private void ClearEE()
+    {
+        var y = m_enter.index.y;
+        var x = m_exit.index.x;
+        
+        for (int i = 0; i < _resolution; i++)
+        {
+            _grid[i, y].Type = TileType.empty;
+            _grid[x, i].Type = TileType.empty;
+        }
     }
 }
