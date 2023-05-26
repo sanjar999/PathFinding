@@ -12,15 +12,16 @@ public class GridGenerator : MonoBehaviour
     [SerializeField] private float _gridOffset;
     [SerializeField] private float _offset;
     [SerializeField] private int _obstacleProbability = 3;
+    [SerializeField] private int _exitCount = 1;
     private Tile[,] _grid;
     private List<EnterPos> _enters;
     private List<ExitPos> _exits;
 
     private Enter m_enter;
-    private Exit m_exit;
+    private List<Exit> m_exits = new List<Exit>();
 
     public Enter GetEnter => m_enter;
-    public Exit GetExit => m_exit;
+    public  List<Exit>  GetExits => m_exits;
     public Tile[,] GetGrid => _grid;
 
     void Awake()
@@ -33,8 +34,9 @@ public class GridGenerator : MonoBehaviour
         GenerateEnterPosz();
         GenerateExitsPosz();
         SpawnEnter();
-        SpawnExit();
-        ClearEE();
+        SpawnExits();
+        ClearEnter();
+        ClearExits();
     }
 
     private void GenerateGrid()
@@ -97,24 +99,39 @@ public class GridGenerator : MonoBehaviour
         m_enter = instance;
     }
 
-    private void SpawnExit()
+    private void SpawnExits()
     {
-        var randomPos = _exits[Random.Range(0, _exits.Count)];
-        var instance = Instantiate(_exit);
-        instance.transform.position = randomPos.transform.position;
-        instance.index = randomPos.index;
-        m_exit = instance;
+        for (int i = 0; i < _exitCount; i++)
+        {
+            var randomPos = _exits[Random.Range(0, _exits.Count)];
+            var instance = Instantiate(_exit);
+            instance.transform.position = randomPos.transform.position;
+            instance.index = randomPos.index;
+            m_exits.Add(instance);
+        }
     }
 
-    private void ClearEE()
+    private void ClearEnter()
     {
         var y = m_enter.index.y;
-        var x = m_exit.index.x;
         
         for (int i = 0; i < _resolution; i++)
         {
             _grid[i, y].Type = TileType.empty;
-            _grid[x, i].Type = TileType.empty;
         }
+    }
+    
+    private void ClearExits()
+    {
+        foreach (var exit in m_exits)
+        {
+            var x = exit.index.x;
+        
+            for (int i = 0; i < _resolution; i++)
+            {
+                _grid[x, i].Type = TileType.empty;
+            }
+        }
+       
     }
 }

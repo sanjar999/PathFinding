@@ -1,6 +1,8 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using JetBrains.Annotations;
 using Unity.VisualScripting.Antlr3.Runtime.Tree;
 using UnityEngine;
 using UnityEngine.UI;
@@ -20,9 +22,10 @@ public class PathFinding : MonoBehaviour
     [SerializeField] private bool _isDistancePath;
 
     [SerializeField] private float _stepSpeed = 1f;
-    
+
     private Enter _enter;
-    private Exit _exit;
+    private List<Exit> _exits;
+
 
     private Tile[,] _grid;
     private List<Tile> _path = new List<Tile>();
@@ -33,18 +36,17 @@ public class PathFinding : MonoBehaviour
 
     private Dictionary<float, Tile> _potentialTiles = new Dictionary<float, Tile>();
 
-    private int _tileIndex;
     private WaitForSeconds _wait;
+
     void Start()
     {
-     
         _button.onClick.AddListener(Find);
         _enter = _gridGenerator.GetEnter;
-        _exit = _gridGenerator.GetExit;
+        _exits = _gridGenerator.GetExits;
         _grid = _gridGenerator.GetGrid;
 
         _wait = new WaitForSeconds(_stepSpeed);
-        
+
         GetFirstTile();
     }
 
@@ -63,110 +65,127 @@ public class PathFinding : MonoBehaviour
 
         _currTile.Type = TileType.path;
         _path.Add(_currTile);
-        _currTile.SetNum(_tileIndex);
-        _tileIndex++;
+        _currTile.SetNum(0);
     }
 
     private void Find()
     {
-        StartCoroutine(FindCo());
+        foreach (var exit in _exits)
+        {
+            StartCoroutine(FindCo(exit.transform));
+        }
     }
 
-    private IEnumerator FindCo()
+    private IEnumerator FindCo(Transform exit)
     {
+        var tileIndex = 1;
+        Tile currTile = _currTile;
+        Tile potentialNewTile = default;
+        List<Tile> path = new List<Tile>();
+        float distance = float.MaxValue;
+
         while (_distance > _minDistToExit)
         {
             yield return _wait;
-            _potentialTiles.Clear();
-            CheckUp();
-            CheckDown();
-            CheckRight();
-            CheckLeft();
+            CheckUp(exit, ref potentialNewTile, ref currTile, ref distance);
+            CheckDown(exit, ref potentialNewTile, ref currTile, ref distance);
+            CheckRight(exit, ref potentialNewTile, ref currTile, ref distance);
+            CheckLeft(exit, ref potentialNewTile, ref currTile, ref distance);
 
-            var potentialTiles = _potentialTiles.OrderBy(i => i.Key);
 
-            if (potentialTiles.Count() == 0)
+            if (potentialNewTile == null)
             {
-                var currTileIndex = _path.IndexOf(_currTile);
-                _currTile.Type = TileType.no_go;
-                _path.Remove(_currTile);
-                _currTile = _path[currTileIndex - 1];
+                var currTileIndex = path.IndexOf(currTile);
+                currTile.Type = TileType.no_go;
+                path.Remove(currTile);
+                currTile = path[currTileIndex - 1];
+                distance = currTile._distToexit;
             }
             else
             {
-                _currTile = potentialTiles.First().Value;
-                _currTile.Type = TileType.path;
-                _path.Add(_currTile);
+                currTile = potentialNewTile;
+                currTile.Type = TileType.path;
+                path.Add(currTile);
             }
 
-            _currTile.SetNum(_tileIndex);
-            _tileIndex++;
+            potentialNewTile = null;
+            currTile.SetNum(tileIndex);
+            tileIndex++;
 
-            if (Vector3.Distance(_currTile.transform.position, _exit.transform.position) < _minDistToExit)
+            if (Vector3.Distance(currTile.transform.position, exit.transform.position) < _minDistToExit)
                 break;
         }
     }
 
     #region Checks
 
-    private void CheckUp()
+    private void CheckUp(Transform exit, ref Tile pt, ref Tile ct, ref float d)
     {
-        if (_currTile.index.y == _grid.GetLength(0) - 1)
+        if (ct.index.y == _grid.GetLength(0) - 1)
             return;
 
-        CheckSide(0, 1, _upMovePriority);
+        CheckDist(0, 1, exit, ref pt, ref ct, ref d);
     }
 
-    private void CheckDown()
+    private void CheckDown(Transform exit, ref Tile pt, ref Tile ct, ref float d)
     {
-        if (_currTile.index.y == 0)
+        if (ct.index.y == 0)
             return;
 
-        CheckSide(0, -1, _downMovePriority);
+        CheckDist(0, -1, exit, ref pt, ref ct, ref d);
     }
 
-    private void CheckRight()
+    private void CheckRight(Transform exit, ref Tile pt, ref Tile ct, ref float d)
     {
-        if (_currTile.index.x == _grid.GetLength(0) - 1)
+        if (ct.index.x == _grid.GetLength(0) - 1)
             return;
 
-        CheckSide(1, 0, _rightMovePriority);
+        CheckDist(1, 0, exit, ref pt, ref ct, ref d);
     }
 
-    private void CheckLeft()
+    private void CheckLeft(Transform exit, ref Tile pt, ref Tile ct, ref float d)
     {
-        if (_currTile.index.x == 0)
+        if (ct.index.x == 0)
             return;
 
-        CheckSide(-1, 0, _leftMovePriority);
+        CheckDist(-1, 0, exit, ref pt, ref ct, ref d);
     }
 
-    private void CheckSide(int x, int y, float priority)
+    private void CheckDist(int x, int y, Transform target, ref Tile potentianNewTile, ref Tile currTile,
+        ref float distance)
     {
-        var newTile = _grid[_currTile.index.x + x, _currTile.index.y + y];
-        var newDist = Vector3.Distance(newTile.transform.position, _exit.transform.position);
-
-        // if (newDist > _distance + _minDistToExit * 0.8f)
-        //     return;
+        var newTile = _grid[currTile.index.x + x, currTile.index.y + y];
+        var newDist = Vector3.Distance(newTile.transform.position, target.position);
 
         if (newTile.Type == TileType.no_go || newTile.Type == TileType.obstacle)
             return;
 
-        _potentianNewTile = newTile;
-        _potentianNewTile.index = new Vector2Int(_currTile.index.x + x, _currTile.index.y + y);
-        _distance = newDist;
 
-        if (_path.Contains(newTile))
-            return;
-
-        if (_isPriorityPath)
-            _potentialTiles.Add(1 - priority, newTile);
-        if (_isDistancePath)
+        if (newDist < distance)
         {
-            if (_potentialTiles.ContainsKey(newDist))
-                newDist = Random.Range(0, 0.01f);
+            potentianNewTile = newTile;
+            potentianNewTile.index = new Vector2Int(currTile.index.x + x, currTile.index.y + y);
+            distance = newDist;
+            potentianNewTile._distToexit = newDist;
+            if (x == 1)
+            {
+                print("right");
+            }
 
-            _potentialTiles.Add(newDist, newTile);
+            if (x == -1)
+            {
+                print("left");
+            }
+
+            if (y == 1)
+            {
+                print("up");
+            }
+
+            if (y == -1)
+            {
+                print("down");
+            }
         }
     }
 

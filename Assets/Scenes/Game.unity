@@ -679,7 +679,7 @@ MonoBehaviour:
   _resolution: 50
   _gridOffset: 0.75
   _offset: 0.15
-  _obstacleProbability: 3
+  _obstacleProbability: 2
 --- !u!1 &1309519539
 GameObject:
   m_ObjectHideFlags: 0

@@ -10,7 +10,8 @@ public class Tile : MonoBehaviour
 {
     [SerializeField] private TMP_Text _num;
     public Vector2Int index;
-
+    public float _distToexit;
+    
     private TileType _type;
 
     public TileType Type
